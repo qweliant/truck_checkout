@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"os"
 	"testing"
+	"time"
 
 	db "truck-checkout/database"
 
@@ -41,7 +42,7 @@ func TestMain(m *testing.M) {
 func TestTruckModel(t *testing.T) {
 	team := "beltline"
 	calendarID := uuid.New()
-	err := InsertTruck("Tulip", &team, calendarID, true)
+	err := InsertTruck("Tulip", &team, calendarID, false)
 	if err != nil {
 		t.Fatalf("failed to insert truck: %v", err)
 	}
@@ -59,28 +60,54 @@ func TestTruckModel(t *testing.T) {
 	if truck.CalendarID != calendarID {
 		t.Errorf("expected calendar ID to match, got '%s'", truck.CalendarID)
 	}
-	if !truck.IsActive {
-		t.Error("expected truck to be active")
+	if truck.IsActive {
+		t.Error("expected truck to be free")
 	}
 }
 
-// func TestCheckoutModel(t *testing.T) {
-// 	truckID, err := uuid.Parse("123e4567-e89b-12d3-a456-426614174000")
-// 	if err != nil {
-// 		t.Fatalf("failed to parse UUID: %v", err)
-// 	}
-// 	checkout := Checkout{
-// 		ID:        uuid.New(),
-// 		TruckID:   truckID,
-// 		UserID:    uuid.New(),
-// 		UserName:  "Qwelian",
-// 		TeamName:  "forest_restoration",
-// 		StartDate: time.Now(),
-// 		EndDate:   time.Now().Add(8 * time.Hour),
-// 		Purpose:   "Watering trees",
-// 	}
+func TestCheckoutDatabaseOperations(t *testing.T) {
+	// First create a truck
+	team := "test_team"
+	err := InsertTruck("Checkout Test Truck", &team, uuid.New(), true)
+	if err != nil {
+		t.Fatalf("failed to insert truck: %v", err)
+	}
 
-// 	if checkout.TeamName != "forest_restoration" {
-// 		t.Errorf("expected team name to match")
-// 	}
-// }
+	truck, err := GetTruckByName("Checkout Test Truck")
+	if err != nil {
+		t.Fatalf("failed to get truck: %v", err)
+	}
+
+	// Test checkout insertion
+	checkout := Checkout{
+		ID:        uuid.New(),
+		TruckID:   truck.ID,
+		UserID:    uuid.New(),
+		UserName:  "Qwelian Tanner",
+		TeamName:  "Foerst Restoration",
+		StartDate: time.Now(),
+		EndDate:   time.Now().Add(4 * time.Hour),
+		Purpose:   "Testing This truck was checked out digitally",
+	}
+
+	err = InsertCheckout(checkout)
+	if err != nil {
+		t.Fatalf("failed to insert checkout: %v", err)
+	}
+
+	// Test retrieval
+	retrievedCheckout, err := GetCheckoutByID(checkout.ID)
+	if err != nil {
+		t.Fatalf("failed to get checkout: %v", err)
+	}
+
+	if retrievedCheckout.UserName != checkout.UserName {
+		t.Errorf("expected user name %s, got %s", checkout.UserName, retrievedCheckout.UserName)
+	}
+	if retrievedCheckout.TeamName != checkout.TeamName {
+		t.Errorf("expected team name %s, got %s", checkout.TeamName, retrievedCheckout.TeamName)
+	}
+	if retrievedCheckout.Purpose != checkout.Purpose {
+		t.Errorf("expected purpose %s, got %s", checkout.Purpose, retrievedCheckout.Purpose)
+	}
+}
