@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"fmt"
 
 	db "truck-checkout/database"
 
@@ -17,6 +18,14 @@ type Truck struct {
 }
 
 func InsertTruck(name string, team *string, calendarID uuid.UUID, isActive bool) error {
+	// anyway for the enum to be auto validated?
+	if !IsValidTruck(name) {
+		return fmt.Errorf("invalid truck name: %s", name)
+	}
+	if team != nil && !IsValidTeam(*team) {
+		return fmt.Errorf("invalid default team: %s", *team)
+	}
+
 	id := uuid.New()
 	_, err := db.DB.Exec(`
 		INSERT INTO trucks (id, name, default_team, calendar_id, is_active)

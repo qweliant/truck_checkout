@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 	db "truck-checkout/database"
 
@@ -22,6 +23,9 @@ type Checkout struct {
 }
 
 func InsertCheckout(checkout Checkout) error {
+	if !IsValidTeam(checkout.TeamName) {
+		return fmt.Errorf("invalid team name: %s", checkout.TeamName)
+	}
 	_, err := db.DB.Exec(`
 		INSERT INTO checkouts (id, truck_id, user_id, user_name, team_name, start_date, end_date, purpose)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)

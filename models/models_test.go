@@ -65,15 +65,24 @@ func TestTruckModel(t *testing.T) {
 	}
 }
 
+func TestInsertTruck_InvalidName(t *testing.T) {
+	calendarID := uuid.New()
+	team := "beltline"
+	err := InsertTruck("BananaBoat", &team, calendarID, true)
+	if err == nil {
+		t.Fatal("expected error for invalid truck name")
+	}
+}
+
 func TestCheckoutDatabaseOperations(t *testing.T) {
 	// First create a truck
-	team := "test_team"
-	err := InsertTruck("Checkout Test Truck", &team, uuid.New(), true)
+	team := "forest_restoration"
+	err := InsertTruck("Magnolia", &team, uuid.New(), false)
 	if err != nil {
 		t.Fatalf("failed to insert truck: %v", err)
 	}
 
-	truck, err := GetTruckByName("Checkout Test Truck")
+	truck, err := GetTruckByName("Magnolia")
 	if err != nil {
 		t.Fatalf("failed to get truck: %v", err)
 	}
@@ -84,7 +93,7 @@ func TestCheckoutDatabaseOperations(t *testing.T) {
 		TruckID:   truck.ID,
 		UserID:    uuid.New(),
 		UserName:  "Qwelian Tanner",
-		TeamName:  "Foerst Restoration",
+		TeamName:  "beltline",
 		StartDate: time.Now(),
 		EndDate:   time.Now().Add(4 * time.Hour),
 		Purpose:   "Testing This truck was checked out digitally",
