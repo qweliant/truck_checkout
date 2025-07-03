@@ -19,6 +19,21 @@ func main() {
 
 	db.InitDB(dbPath)
 
+	log.Println("🗑️ Clearing existing data...")
+
+	// Clear existing data
+	_, err := db.DB.Exec("DELETE FROM checkouts")
+	if err != nil {
+		log.Fatalf("❌ Failed to clear checkouts: %v", err)
+	}
+
+	_, err = db.DB.Exec("DELETE FROM trucks")
+	if err != nil {
+		log.Fatalf("❌ Failed to clear trucks: %v", err)
+	}
+
+	log.Println("✅ Database cleared")
+
 	log.Println("🌱 Seeding trucks with assigned default teams...")
 
 	truckSeedData := []struct {
@@ -27,14 +42,12 @@ func main() {
 	}{
 		{"Libby", "floaters"},
 		{"Tulip", "beltline"},
-		{"Watson", "forest_restoration"}, // update if a better default team becomes clear
+		{"Watson", "forest_restoration"},
 		{"Andre350", "urban_trees"},
 	}
 
-	truckIDs := make(map[string]uuid.UUID)
-
+	// Insert trucks and get their actual IDs
 	for _, truck := range truckSeedData {
-		truckID := uuid.New()
 		calendarID := uuid.New()
 
 		err := models.InsertTruck(truck.Name, &truck.DefaultTeam, calendarID, false)
@@ -42,7 +55,6 @@ func main() {
 			log.Fatalf("❌ Failed to insert truck %s: %v", truck.Name, err)
 		}
 
-		truckIDs[truck.Name] = truckID
 		log.Printf("✅ Inserted truck: %s (%s)", truck.Name, truck.DefaultTeam)
 	}
 
@@ -52,35 +64,22 @@ func main() {
 	start := time.Now()
 	end := start.Add(8 * time.Hour)
 
-	checkouts := []struct {
-		TruckName string
-		Team      string
-	}{
-		{"Tulip", "beltline"},
-		{"Libby", "floaters"},
-	}
+	checkoutTrucks := []string{"Libby", "Tulip"}
 
-	//set the trucks libby and tulip to have isCheckedOut = true
-	for _, truckName := range []string{"Libby", "Tulip"} {
+	for _, truckName := range checkoutTrucks {
+		// Get the actual truck from the database (with its real ID)
 		truck, err := models.GetTruckByName(truckName)
 		if err != nil {
 			log.Fatalf("❌ Failed to get truck %s: %v", truckName, err)
 		}
-		truck.IsCheckedOut = true
-		err = models.UpdateTruck(*truck)
-		if err != nil {
-			log.Fatalf("❌ Failed to update truck %s: %v", truckName, err)
-		}
-		log.Printf("✅ Updated truck %s to active", truckName)
-	}
 
-	for _, entry := range checkouts {
+		// Create checkout with the real truck ID
 		checkout := models.Checkout{
 			ID:              uuid.New(),
-			TruckID:         truckIDs[entry.TruckName],
-			UserID:          userID,
+			TruckID:         truck.ID, // Use the actual truck ID from database
+			UserID:          userID.String(),
 			UserName:        "Seeder McSeedface",
-			TeamName:        entry.Team,
+			TeamName:        *truck.DefaultTeam,
 			StartDate:       start,
 			EndDate:         end,
 			Purpose:         "Seeding test run",
@@ -88,11 +87,19 @@ func main() {
 			CreatedAt:       time.Now(),
 		}
 
-		err := models.InsertCheckout(checkout)
+		err = models.InsertCheckout(checkout)
 		if err != nil {
-			log.Fatalf("❌ Failed to checkout %s: %v", entry.TruckName, err)
+			log.Fatalf("❌ Failed to checkout %s: %v", truckName, err)
 		}
-		log.Printf("🟡 Checked out %s (%s)", entry.TruckName, entry.Team)
+
+		// Mark truck as checked out
+		truck.IsCheckedOut = true
+		err = models.UpdateTruck(*truck)
+		if err != nil {
+			log.Fatalf("❌ Failed to update truck %s: %v", truckName, err)
+		}
+
+		log.Printf("🟡 Checked out %s (%s)", truckName, *truck.DefaultTeam)
 	}
 
 	log.Println("🌳 Seed complete.")

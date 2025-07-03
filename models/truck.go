@@ -73,20 +73,38 @@ func GetTrucksByCheckoutStatus(day time.Time, isCheckedOut bool) ([]Truck, error
 	startOfDay := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
 	endOfDay := startOfDay.Add(24 * time.Hour)
 
-	// More explicit overlap condition
-	rows, err := db.DB.Query(`
-		SELECT t.id, t.name, t.default_team, t.calendar_id, t.is_checked_out
-		FROM trucks t
-		WHERE t.is_checked_out = ?
-		AND NOT EXISTS (
-			SELECT 1 FROM checkouts c
-			WHERE c.truck_id = t.id
-			AND c.start_date < ?
-			AND c.end_date > ?
-		)
-	`, isCheckedOut, endOfDay, startOfDay)
+	var query string
+	if isCheckedOut {
+		// For checked-out trucks: should be marked as checked out AND have active checkout records
+		query = `
+			SELECT t.id, t.name, t.default_team, t.calendar_id, t.is_checked_out
+			FROM trucks t
+			WHERE t.is_checked_out = true
+			AND EXISTS (
+				SELECT 1 FROM checkouts c
+				WHERE c.truck_id = t.id
+				AND c.start_date < ?
+				AND c.end_date > ?
+			)
+		`
+	} else {
+		// For available trucks: should be marked as available AND have no active checkout records
+		query = `
+			SELECT t.id, t.name, t.default_team, t.calendar_id, t.is_checked_out
+			FROM trucks t
+			WHERE t.is_checked_out = false
+			AND NOT EXISTS (
+				SELECT 1 FROM checkouts c
+				WHERE c.truck_id = t.id
+				AND c.start_date < ?
+				AND c.end_date > ?
+			)
+		`
+	}
+
+	rows, err := db.DB.Query(query, endOfDay, startOfDay)
 	if err != nil {
-		return nil, fmt.Errorf("querying available trucks: %w", err)
+		return nil, fmt.Errorf("querying trucks by checkout status: %w", err)
 	}
 	defer func() {
 		if err := rows.Close(); err != nil {

@@ -151,7 +151,7 @@ func TestGetAvailableTrucksForToday(t *testing.T) {
 	checkout := Checkout{
 		ID:        uuid.New(),
 		TruckID:   magnolia.ID,
-		UserID:    uuid.New(),
+		UserID:    uuid.New().String(),
 		UserName:  "Test User",
 		TeamName:  "neighborwoods",
 		StartDate: startOfToday,
@@ -222,7 +222,7 @@ func TestCheckoutDatabaseOperations(t *testing.T) {
 	checkout := Checkout{
 		ID:        uuid.New(),
 		TruckID:   truck.ID,
-		UserID:    uuid.New(),
+		UserID:    uuid.New().String(),
 		UserName:  "Qwelian Tanner",
 		TeamName:  "beltline",
 		StartDate: time.Now(),
