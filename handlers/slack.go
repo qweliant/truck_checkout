@@ -19,7 +19,23 @@ func HandleSlashCommand(client *socketmode.Client, evt socketmode.Event) {
 
 	switch cmd.Command {
 	case "/checkout":
-		client.Ack(*evt.Request, map[string]string{"text": "🚛 Handled /checkout!"})
+		args := strings.Fields(cmd.Text)
+		switch len(args) {
+		case 0:
+			// Later: open Block Kit modal for truck selection
+			client.Ack(*evt.Request, map[string]string{
+				"text": "ℹ️ Use `/checkout [truck-name]` to check out a truck.",
+			})
+			return
+		case 1:
+			HandleQuickCheckout(client, evt.Request, args[0], cmd.UserID, cmd.UserName)
+			return
+		default:
+			client.Ack(*evt.Request, map[string]string{
+				"text": "⚠️ Too many arguments. Try `/checkout Tulip`",
+			})
+			return
+		}
 	case "/trucks":
 		args := strings.Fields(cmd.Text)
 		if len(args) > 0 {
@@ -27,7 +43,7 @@ func HandleSlashCommand(client *socketmode.Client, evt socketmode.Event) {
 			case "available":
 				HandleTrucksAvailable(client, evt.Request)
 				return
-			case "checkedout":
+			case "checked-out":
 				HandleTrucksCheckedOut(client, evt.Request)
 				return
 			}

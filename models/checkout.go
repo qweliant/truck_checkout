@@ -12,7 +12,7 @@ import (
 type Checkout struct {
 	ID              uuid.UUID
 	TruckID         uuid.UUID
-	UserID          uuid.UUID
+	UserID          string
 	UserName        string
 	TeamName        string
 	StartDate       time.Time
@@ -29,7 +29,7 @@ func InsertCheckout(checkout Checkout) error {
 	_, err := db.DB.Exec(`
 		INSERT INTO checkouts (id, truck_id, user_id, user_name, team_name, start_date, end_date, purpose)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, checkout.ID.String(), checkout.TruckID.String(), checkout.UserID.String(),
+	`, checkout.ID.String(), checkout.TruckID.String(), checkout.UserID,
 		checkout.UserName, checkout.TeamName, checkout.StartDate, checkout.EndDate, checkout.Purpose)
 	return err
 }
