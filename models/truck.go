@@ -70,8 +70,9 @@ func UpdateTruck(truck Truck) error {
 }
 
 func GetTrucksByCheckoutStatus(day time.Time, isCheckedOut bool) ([]Truck, error) {
-	startOfDay := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
-	endOfDay := startOfDay.Add(24 * time.Hour)
+	// startOfDay := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
+	// endOfDay := startOfDay.Add(24 * time.Hour)
+	currentTime := time.Now()
 
 	var query string
 	if isCheckedOut {
@@ -83,7 +84,7 @@ func GetTrucksByCheckoutStatus(day time.Time, isCheckedOut bool) ([]Truck, error
 			AND EXISTS (
 				SELECT 1 FROM checkouts c
 				WHERE c.truck_id = t.id
-				AND c.start_date < ?
+				AND c.start_date <= ?
 				AND c.end_date > ?
 			)
 		`
@@ -96,13 +97,13 @@ func GetTrucksByCheckoutStatus(day time.Time, isCheckedOut bool) ([]Truck, error
 			AND NOT EXISTS (
 				SELECT 1 FROM checkouts c
 				WHERE c.truck_id = t.id
-				AND c.start_date < ?
+				AND c.start_date <= ?
 				AND c.end_date > ?
 			)
 		`
 	}
 
-	rows, err := db.DB.Query(query, endOfDay, startOfDay)
+	rows, err := db.DB.Query(query, currentTime, currentTime)
 	if err != nil {
 		return nil, fmt.Errorf("querying trucks by checkout status: %w", err)
 	}

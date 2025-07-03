@@ -114,5 +114,3 @@ func GetActiveCheckoutByTruckID(truckID uuid.UUID) (*Checkout, error) {
 
 	return &checkout, nil
 }
-
-
