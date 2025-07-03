@@ -12,14 +12,14 @@ import (
 )
 
 type Truck struct {
-	ID          uuid.UUID
-	Name        string
-	DefaultTeam *string
-	CalendarID  uuid.UUID
-	IsActive    bool
+	ID           uuid.UUID
+	Name         string
+	DefaultTeam  *string
+	CalendarID   uuid.UUID
+	IsCheckedOut bool
 }
 
-func InsertTruck(name string, team *string, calendarID uuid.UUID, isActive bool) error {
+func InsertTruck(name string, team *string, calendarID uuid.UUID, isCheckedOut bool) error {
 	// anyway for the enum to be auto validated?
 	if !IsValidTruck(name) {
 		return fmt.Errorf("invalid truck name: %s", name)
@@ -30,9 +30,9 @@ func InsertTruck(name string, team *string, calendarID uuid.UUID, isActive bool)
 
 	id := uuid.New()
 	_, err := db.DB.Exec(`
-		INSERT INTO trucks (id, name, default_team, calendar_id, is_active)
+		INSERT INTO trucks (id, name, default_team, calendar_id, is_checked_out)
 		VALUES (?, ?, ?, ?, ?);
-	`, id, name, team, calendarID, isActive)
+	`, id, name, team, calendarID, isCheckedOut)
 	return err
 }
 
@@ -40,8 +40,8 @@ func GetTruckByName(name string) (*Truck, error) {
 	var truck Truck
 	var defaultTeam sql.NullString
 
-	row := db.DB.QueryRow("SELECT id, name, default_team, calendar_id, is_active FROM trucks WHERE name = ?", name)
-	err := row.Scan(&truck.ID, &truck.Name, &defaultTeam, &truck.CalendarID, &truck.IsActive)
+	row := db.DB.QueryRow("SELECT id, name, default_team, calendar_id, is_checked_out FROM trucks WHERE name = ?", name)
+	err := row.Scan(&truck.ID, &truck.Name, &defaultTeam, &truck.CalendarID, &truck.IsCheckedOut)
 	if err != nil {
 		return nil, err
 	}
@@ -63,28 +63,28 @@ func UpdateTruck(truck Truck) error {
 
 	_, err := db.DB.Exec(`
 		UPDATE trucks
-		SET name = ?, default_team = ?, calendar_id = ?, is_active = ?
+		SET name = ?, default_team = ?, calendar_id = ?, is_checked_out = ?
 		WHERE id = ?;
-	`, truck.Name, truck.DefaultTeam, truck.CalendarID, truck.IsActive, truck.ID)
+	`, truck.Name, truck.DefaultTeam, truck.CalendarID, truck.IsCheckedOut, truck.ID)
 	return err
 }
 
-func GetAvailableTrucksForToday(day time.Time) ([]Truck, error) {
+func GetTrucksByCheckoutStatus(day time.Time, isCheckedOut bool) ([]Truck, error) {
 	startOfDay := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
 	endOfDay := startOfDay.Add(24 * time.Hour)
 
 	// More explicit overlap condition
 	rows, err := db.DB.Query(`
-		SELECT t.id, t.name, t.default_team, t.calendar_id, t.is_active
+		SELECT t.id, t.name, t.default_team, t.calendar_id, t.is_checked_out
 		FROM trucks t
-		WHERE t.is_active = false
+		WHERE t.is_checked_out = ?
 		AND NOT EXISTS (
 			SELECT 1 FROM checkouts c
 			WHERE c.truck_id = t.id
 			AND c.start_date < ?
 			AND c.end_date > ?
 		)
-	`, endOfDay, startOfDay)
+	`, isCheckedOut, endOfDay, startOfDay)
 	if err != nil {
 		return nil, fmt.Errorf("querying available trucks: %w", err)
 	}
@@ -101,7 +101,7 @@ func GetAvailableTrucksForToday(day time.Time) ([]Truck, error) {
 		var defaultTeam sql.NullString
 		var idStr, calendarIDStr string
 
-		if err := rows.Scan(&idStr, &t.Name, &defaultTeam, &calendarIDStr, &t.IsActive); err != nil {
+		if err := rows.Scan(&idStr, &t.Name, &defaultTeam, &calendarIDStr, &t.IsCheckedOut); err != nil {
 			return nil, fmt.Errorf("scanning truck row: %w", err)
 		}
 

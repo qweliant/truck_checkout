@@ -61,7 +61,7 @@ func TestInsertTruck(t *testing.T) {
 	if truck.CalendarID != calendarID {
 		t.Errorf("expected calendar ID to match, got '%s'", truck.CalendarID)
 	}
-	if truck.IsActive {
+	if truck.IsCheckedOut {
 		t.Error("expected truck to be free")
 	}
 }
@@ -92,7 +92,7 @@ func TestUpdateTruck(t *testing.T) {
 	// update Libby to be inactive and change team
 	newTeam := "beltline"
 	truck.DefaultTeam = &newTeam
-	truck.IsActive = false
+	truck.IsCheckedOut = false
 
 	err = UpdateTruck(*truck)
 	if err != nil {
@@ -104,60 +104,12 @@ func TestUpdateTruck(t *testing.T) {
 		t.Fatalf("Get after update failed: %v", err)
 	}
 
-	if updated.IsActive {
-		t.Errorf("expected IsActive to be false, got true")
+	if updated.IsCheckedOut {
+		t.Errorf("expected IsCheckedOut to be false, got true")
 	}
 
 	if *updated.DefaultTeam != "beltline" {
 		t.Errorf("expected DefaultTeam to be 'beltline', got %s", *updated.DefaultTeam)
-	}
-}
-
-func TestCheckoutDatabaseOperations(t *testing.T) {
-	resetTestDB(t)
-	// First create a truck
-	team := "forest_restoration"
-	err := InsertTruck("Magnolia", &team, uuid.New(), false)
-	if err != nil {
-		t.Fatalf("failed to insert truck: %v", err)
-	}
-
-	truck, err := GetTruckByName("Magnolia")
-	if err != nil {
-		t.Fatalf("failed to get truck: %v", err)
-	}
-
-	// Test checkout insertion
-	checkout := Checkout{
-		ID:        uuid.New(),
-		TruckID:   truck.ID,
-		UserID:    uuid.New(),
-		UserName:  "Qwelian Tanner",
-		TeamName:  "beltline",
-		StartDate: time.Now(),
-		EndDate:   time.Now().Add(4 * time.Hour),
-		Purpose:   "Testing This truck was checked out digitally",
-	}
-
-	err = InsertCheckout(checkout)
-	if err != nil {
-		t.Fatalf("failed to insert checkout: %v", err)
-	}
-
-	// Test retrieval
-	retrievedCheckout, err := GetCheckoutByID(checkout.ID)
-	if err != nil {
-		t.Fatalf("failed to get checkout: %v", err)
-	}
-
-	if retrievedCheckout.UserName != checkout.UserName {
-		t.Errorf("expected user name %s, got %s", checkout.UserName, retrievedCheckout.UserName)
-	}
-	if retrievedCheckout.TeamName != checkout.TeamName {
-		t.Errorf("expected team name %s, got %s", checkout.TeamName, retrievedCheckout.TeamName)
-	}
-	if retrievedCheckout.Purpose != checkout.Purpose {
-		t.Errorf("expected purpose %s, got %s", checkout.Purpose, retrievedCheckout.Purpose)
 	}
 }
 
@@ -213,7 +165,7 @@ func TestGetAvailableTrucksForToday(t *testing.T) {
 	}
 
 	// Test: Get available trucks for today
-	availableTrucks, err := GetAvailableTrucksForToday(today)
+	availableTrucks, err := GetTrucksByCheckoutStatus(today, false)
 	if err != nil {
 		t.Fatalf("failed to get available trucks: %v", err)
 	}
@@ -252,64 +204,53 @@ func TestGetAvailableTrucksForToday(t *testing.T) {
 		}
 	}
 }
+func TestCheckoutDatabaseOperations(t *testing.T) {
+	resetTestDB(t)
+	// First create a truck
+	team := "forest_restoration"
+	err := InsertTruck("Magnolia", &team, uuid.New(), false)
+	if err != nil {
+		t.Fatalf("failed to insert truck: %v", err)
+	}
 
-// func TestGetAvailableTrucksForDifferentDay(t *testing.T) {
-// 	resetTestDB(t)
+	truck, err := GetTruckByName("Magnolia")
+	if err != nil {
+		t.Fatalf("failed to get truck: %v", err)
+	}
 
-// 	// Create test truck
-// 	team := "test_team"
-// 	err := InsertTruck("TestTruck", &team, uuid.New(), true)
-// 	if err != nil {
-// 		t.Fatalf("failed to insert truck: %v", err)
-// 	}
+	// Test checkout insertion
+	checkout := Checkout{
+		ID:        uuid.New(),
+		TruckID:   truck.ID,
+		UserID:    uuid.New(),
+		UserName:  "Qwelian Tanner",
+		TeamName:  "beltline",
+		StartDate: time.Now(),
+		EndDate:   time.Now().Add(4 * time.Hour),
+		Purpose:   "Testing This truck was checked out digitally",
+	}
 
-// 	truck, err := GetTruckByName("TestTruck")
-// 	if err != nil {
-// 		t.Fatalf("failed to get truck: %v", err)
-// 	}
+	err = InsertCheckout(checkout)
+	if err != nil {
+		t.Fatalf("failed to insert checkout: %v", err)
+	}
 
-// 	// Create checkout for tomorrow
-// 	tomorrow := time.Now().Add(24 * time.Hour)
-// 	startOfTomorrow := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 9, 0, 0, 0, tomorrow.Location())
-// 	endOfTomorrow := startOfTomorrow.Add(8 * time.Hour)
+	// Test retrieval
+	retrievedCheckout, err := GetCheckoutByID(checkout.ID)
+	if err != nil {
+		t.Fatalf("failed to get checkout: %v", err)
+	}
 
-// 	checkout := Checkout{
-// 		ID:        uuid.New(),
-// 		TruckID:   truck.ID,
-// 		UserID:    uuid.New(),
-// 		UserName:  "Test User",
-// 		TeamName:  "test_team",
-// 		StartDate: startOfTomorrow,
-// 		EndDate:   endOfTomorrow,
-// 		Purpose:   "Tomorrow's checkout",
-// 	}
-
-// 	err = InsertCheckout(checkout)
-// 	if err != nil {
-// 		t.Fatalf("failed to insert checkout: %v", err)
-// 	}
-
-// 	// Test: Get available trucks for today (should be available since checkout is tomorrow)
-// 	today := time.Now()
-// 	availableTrucks, err := GetAvailableTrucksForToday(today)
-// 	if err != nil {
-// 		t.Fatalf("failed to get available trucks: %v", err)
-// 	}
-
-// 	if len(availableTrucks) != 1 {
-// 		t.Errorf("Expected 1 available truck for today, got %d", len(availableTrucks))
-// 	}
-
-// 	// Test: Get available trucks for tomorrow (should be unavailable)
-// 	availableTrucksTomorrow, err := GetAvailableTrucksForToday(tomorrow)
-// 	if err != nil {
-// 		t.Fatalf("failed to get available trucks for tomorrow: %v", err)
-// 	}
-
-// 	if len(availableTrucksTomorrow) != 0 {
-// 		t.Errorf("Expected 0 available trucks for tomorrow, got %d", len(availableTrucksTomorrow))
-// 	}
-// }
+	if retrievedCheckout.UserName != checkout.UserName {
+		t.Errorf("expected user name %s, got %s", checkout.UserName, retrievedCheckout.UserName)
+	}
+	if retrievedCheckout.TeamName != checkout.TeamName {
+		t.Errorf("expected team name %s, got %s", checkout.TeamName, retrievedCheckout.TeamName)
+	}
+	if retrievedCheckout.Purpose != checkout.Purpose {
+		t.Errorf("expected purpose %s, got %s", checkout.Purpose, retrievedCheckout.Purpose)
+	}
+}
 
 // Helper function to extract truck names
 func getTruckNames(trucks []Truck) []string {

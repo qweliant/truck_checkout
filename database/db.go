@@ -27,7 +27,7 @@ func CreateTables(database *sql.DB) error {
 		name TEXT NOT NULL UNIQUE,
 		default_team TEXT,
 		calendar_id TEXT,
-		is_active BOOLEAN DEFAULT TRUE
+		is_checked_out BOOLEAN DEFAULT TRUE
 	);`
 
 	checkoutSQL := `

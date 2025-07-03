@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"log"
+	"strings"
 
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/socketmode"
@@ -20,7 +21,21 @@ func HandleSlashCommand(client *socketmode.Client, evt socketmode.Event) {
 	case "/checkout":
 		client.Ack(*evt.Request, map[string]string{"text": "🚛 Handled /checkout!"})
 	case "/trucks":
-		client.Ack(*evt.Request, map[string]string{"text": "🚚 Handled /trucks!"})
+		args := strings.Fields(cmd.Text)
+		if len(args) > 0 {
+			switch args[0] {
+			case "available":
+				HandleTrucksAvailable(client, evt.Request)
+				return
+			case "checkedout":
+				HandleTrucksCheckedOut(client, evt.Request)
+				return
+			}
+		}
+		// fallback
+		client.Ack(*evt.Request, map[string]string{
+			"text": "ℹ️ Try `/trucks available` to see today's available trucks.",
+		})
 	case "/release":
 		client.Ack(*evt.Request, map[string]string{"text": "🔁 Handled /release!"})
 	case "/swap":

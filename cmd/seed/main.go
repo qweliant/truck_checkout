@@ -60,13 +60,13 @@ func main() {
 		{"Libby", "floaters"},
 	}
 
-	//set the trucks libby and tulip to have isActive = true
+	//set the trucks libby and tulip to have isCheckedOut = true
 	for _, truckName := range []string{"Libby", "Tulip"} {
 		truck, err := models.GetTruckByName(truckName)
 		if err != nil {
 			log.Fatalf("❌ Failed to get truck %s: %v", truckName, err)
 		}
-		truck.IsActive = true
+		truck.IsCheckedOut = true
 		err = models.UpdateTruck(*truck)
 		if err != nil {
 			log.Fatalf("❌ Failed to update truck %s: %v", truckName, err)
