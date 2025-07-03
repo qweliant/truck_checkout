@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"log"
+	"strconv"
 	"strings"
 
 	"github.com/slack-go/slack"
@@ -24,11 +25,27 @@ func HandleSlashCommand(client *socketmode.Client, evt socketmode.Event) {
 		case 0:
 			// Later: open Block Kit modal for truck selection
 			client.Ack(*evt.Request, map[string]string{
-				"text": "ℹ️ Use `/checkout [truck-name]` to check out a truck.",
+				"text": "ℹ️ Use `/checkout [truck-name]` or `/checkout [truck-name] [days]` to check out a truck.",
 			})
 			return
 		case 1:
-			HandleQuickCheckout(client, evt.Request, args[0], cmd.UserID, cmd.UserName)
+			HandleCheckout(client, evt.Request, args[0], 1, cmd.UserID, cmd.UserName)
+			return
+		case 2:
+			days, err := strconv.Atoi(args[1])
+			if err != nil || days < 1 {
+				client.Ack(*evt.Request, map[string]string{
+					"text": "⚠️ Invalid number of days. Use a positive integer like `/checkout Tulip 4`",
+				})
+				return
+			}
+			if days > 6 { // Optional: set a reasonable limit
+				client.Ack(*evt.Request, map[string]string{
+					"text": "⚠️ Maximum checkout period is 6 days.",
+				})
+				return
+			}
+			HandleCheckout(client, evt.Request, args[0], days, cmd.UserID, cmd.UserName)
 			return
 		default:
 			client.Ack(*evt.Request, map[string]string{
@@ -53,7 +70,23 @@ func HandleSlashCommand(client *socketmode.Client, evt socketmode.Event) {
 			"text": "ℹ️ Try `/trucks available` to see today's available trucks.",
 		})
 	case "/release":
-		client.Ack(*evt.Request, map[string]string{"text": "🔁 Handled /release!"})
+		args := strings.Fields(cmd.Text)
+		switch len(args) {
+		case 0:
+			// Later: open Block Kit modal for truck selection
+			client.Ack(*evt.Request, map[string]string{
+				"text": "ℹ️ Use `/release [truck-name]` to release a truck.",
+			})
+			return
+		case 1:
+			HandleReleaseTruck(client, evt.Request, args[0], cmd.UserID, cmd.UserName)
+			return
+		default:
+			client.Ack(*evt.Request, map[string]string{
+				"text": "⚠️ Too many arguments. Try `/release Tulip`",
+			})
+			return
+		}
 	case "/swap":
 		client.Ack(*evt.Request, map[string]string{"text": "🔀 Handled /swap!"})
 	default:

@@ -42,8 +42,11 @@ func CreateTables(database *sql.DB) error {
 		purpose TEXT,
 		calendar_event_id TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		released_by TEXT,
+		released_at TIMESTAMP,
 		FOREIGN KEY(truck_id) REFERENCES trucks(id)
-	);`
+	);	
+	`
 
 	if _, err := database.Exec(truckSQL); err != nil {
 		return err
