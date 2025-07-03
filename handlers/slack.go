@@ -19,6 +19,8 @@ func HandleSlashCommand(client *socketmode.Client, evt socketmode.Event) {
 	switch cmd.Command {
 	case "/checkout":
 		client.Ack(*evt.Request, map[string]string{"text": "🚛 Handled /checkout!"})
+	case "/trucks":
+		client.Ack(*evt.Request, map[string]string{"text": "🚚 Handled /trucks!"})
 	case "/release":
 		client.Ack(*evt.Request, map[string]string{"text": "🔁 Handled /release!"})
 	case "/swap":

@@ -29,6 +29,8 @@ func main() {
 				log.Println("Connecting to Slack...")
 			case socketmode.EventTypeConnected:
 				log.Println("Connected to Slack!")
+			case socketmode.EventTypeHello:
+				log.Println("Received Hello event from Slack")
 			case socketmode.EventTypeConnectionError:
 				log.Printf("Connection error: %v\n", evt)
 			case socketmode.EventTypeSlashCommand:

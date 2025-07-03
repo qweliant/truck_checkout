@@ -3,6 +3,8 @@ package models
 import (
 	"database/sql"
 	"fmt"
+	"log"
+	"time"
 
 	db "truck-checkout/database"
 
@@ -49,4 +51,78 @@ func GetTruckByName(name string) (*Truck, error) {
 	}
 
 	return &truck, nil
+}
+
+func UpdateTruck(truck Truck) error {
+	if !IsValidTruck(truck.Name) {
+		return fmt.Errorf("invalid truck name: %s", truck.Name)
+	}
+	if truck.DefaultTeam != nil && !IsValidTeam(*truck.DefaultTeam) {
+		return fmt.Errorf("invalid default team: %s", *truck.DefaultTeam)
+	}
+
+	_, err := db.DB.Exec(`
+		UPDATE trucks
+		SET name = ?, default_team = ?, calendar_id = ?, is_active = ?
+		WHERE id = ?;
+	`, truck.Name, truck.DefaultTeam, truck.CalendarID, truck.IsActive, truck.ID)
+	return err
+}
+
+func GetAvailableTrucksForToday(day time.Time) ([]Truck, error) {
+	startOfDay := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
+	endOfDay := startOfDay.Add(24 * time.Hour)
+
+	// More explicit overlap condition
+	rows, err := db.DB.Query(`
+		SELECT t.id, t.name, t.default_team, t.calendar_id, t.is_active
+		FROM trucks t
+		WHERE t.is_active = false
+		AND NOT EXISTS (
+			SELECT 1 FROM checkouts c
+			WHERE c.truck_id = t.id
+			AND c.start_date < ?
+			AND c.end_date > ?
+		)
+	`, endOfDay, startOfDay)
+	if err != nil {
+		return nil, fmt.Errorf("querying available trucks: %w", err)
+	}
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("error closing rows: %v", err)
+		}
+	}()
+
+	var trucks []Truck
+
+	for rows.Next() {
+		var t Truck
+		var defaultTeam sql.NullString
+		var idStr, calendarIDStr string
+
+		if err := rows.Scan(&idStr, &t.Name, &defaultTeam, &calendarIDStr, &t.IsActive); err != nil {
+			return nil, fmt.Errorf("scanning truck row: %w", err)
+		}
+
+		var parseErr error
+		if t.ID, parseErr = uuid.Parse(idStr); parseErr != nil {
+			return nil, fmt.Errorf("parsing truck UUID: %w", parseErr)
+		}
+
+		if t.CalendarID, parseErr = uuid.Parse(calendarIDStr); parseErr != nil {
+			return nil, fmt.Errorf("parsing calendar UUID: %w", parseErr)
+		}
+
+		if defaultTeam.Valid {
+			t.DefaultTeam = &defaultTeam.String
+		}
+		trucks = append(trucks, t)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("after row iteration: %w", err)
+	}
+
+	return trucks, nil
 }
