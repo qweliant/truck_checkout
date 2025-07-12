@@ -10,16 +10,16 @@ import (
 )
 
 type Checkout struct {
-	ID              uuid.UUID
-	TruckID         uuid.UUID
-	UserID          string
-	UserName        string
-	TeamName        string
-	StartDate       time.Time
-	EndDate         time.Time
-	Purpose         string
-	CalendarEventID string
-	CreatedAt       time.Time
+	ID              uuid.UUID  `json:"id"`
+	TruckID         uuid.UUID  `json:"truck_id"`
+	UserID          string     `json:"user_id"`
+	UserName        string     `json:"user_name"`
+	TeamName        string     `json:"team_name"`
+	StartDate       time.Time  `json:"start_date"`
+	EndDate         time.Time  `json:"end_date"`
+	Purpose         string     `json:"purpose,omitempty"`
+	CalendarEventID string     `json:"calendar_event_id,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
 	ReleasedBy      *string    `json:"released_by,omitempty"`
 	ReleasedAt      *time.Time `json:"released_at,omitempty"`
 }
@@ -77,7 +77,7 @@ func ReleaseTruckFromCheckout(truckID uuid.UUID, releasedBy string) error {
 		ORDER BY start_date ASC 
 		LIMIT 1
 	`, truckID.String(), now, now).Scan(&currentCheckoutID)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return fmt.Errorf("no active checkout found for truck")

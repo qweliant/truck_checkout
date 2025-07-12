@@ -21,6 +21,15 @@ func InitDB(path string) {
 }
 
 func CreateTables(database *sql.DB) error {
+	userSQL := `
+	CREATE TABLE IF NOT EXISTS users (
+		id TEXT PRIMARY KEY,
+		slack_user_id TEXT NOT NULL UNIQUE,
+		username TEXT NOT NULL,
+		team TEXT NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);`
+
 	truckSQL := `
 	CREATE TABLE IF NOT EXISTS trucks (
 		id TEXT PRIMARY KEY,
@@ -48,6 +57,9 @@ func CreateTables(database *sql.DB) error {
 	);	
 	`
 
+	if _, err := database.Exec(userSQL); err != nil {
+		return err
+	}
 	if _, err := database.Exec(truckSQL); err != nil {
 		return err
 	}
