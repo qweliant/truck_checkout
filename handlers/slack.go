@@ -23,7 +23,7 @@ func HandleSlashCommand(client *socketmode.Client, evt socketmode.Event) {
 		args := strings.Fields(cmd.Text)
 		switch len(args) {
 		case 0:
-			// Later: open Block Kit modal for truck selection
+			// TODO: open Block Kit modal for truck selection
 			client.Ack(*evt.Request, map[string]string{
 				"text": "ℹ️ Use `/checkout [truck-name]` or `/checkout [truck-name] [days]` to check out a truck.",
 			})
@@ -34,12 +34,14 @@ func HandleSlashCommand(client *socketmode.Client, evt socketmode.Event) {
 		case 2:
 			days, err := strconv.Atoi(args[1])
 			if err != nil || days < 1 {
+				log.Printf("Warning: User %s tried to check out for an invalid number of days: %s", cmd.UserID, args[1])
 				client.Ack(*evt.Request, map[string]string{
 					"text": "⚠️ Invalid number of days. Use a positive integer like `/checkout Tulip 4`",
 				})
 				return
 			}
-			if days > 6 { // Optional: set a reasonable limit
+			if days > 6 { // ? Assuming max checkout period is 6 days
+				log.Printf("Warning: User %s tried to check out for %d days, which exceeds the limit.", cmd.UserID, days)
 				client.Ack(*evt.Request, map[string]string{
 					"text": "⚠️ Maximum checkout period is 6 days.",
 				})

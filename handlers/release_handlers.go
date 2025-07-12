@@ -54,6 +54,7 @@ func HandleReleaseTruck(client *socketmode.Client, req *socketmode.Request, truc
 	if err != nil {
 		log.Printf("Failed to post message to #vehicleupdates: %v", err)
 	}
+	log.Printf("Truck %s released by %s", truckName, userName)
 
 	client.Ack(*req, map[string]string{
 		"text": fmt.Sprintf("✅ Truck `%s` has been released successfully!", truckName),

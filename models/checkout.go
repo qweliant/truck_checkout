@@ -65,25 +65,57 @@ func ReleaseTruckFromCheckout(truckID uuid.UUID, releasedBy string) error {
 	}
 	defer tx.Rollback()
 
-	// Update the truck's status to not checked out
-	_, err = tx.Exec(`
-		UPDATE trucks SET is_checked_out = FALSE WHERE id = ?
-	`, truckID.String())
+	now := time.Now()
+
+	// Find the current active checkout (the one that should be released)
+	var currentCheckoutID string
+	err = tx.QueryRow(`
+		SELECT id FROM checkouts 
+		WHERE truck_id = ? 
+		AND start_date <= ? 
+		AND end_date > ?
+		ORDER BY start_date ASC 
+		LIMIT 1
+	`, truckID.String(), now, now).Scan(&currentCheckoutID)
+	
 	if err != nil {
-		return fmt.Errorf("failed to update truck status: %w", err)
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("no active checkout found for truck")
+		}
+		return fmt.Errorf("failed to find current checkout: %w", err)
 	}
 
-	// Archive checkouts instead of deleting (for audit trail)
+	// Only update the current active checkout
 	_, err = tx.Exec(`
 		UPDATE checkouts 
 		SET 
 			end_date = ?,
 			released_by = ?,
 			released_at = ?
-		WHERE truck_id = ? AND end_date > ?
-	`, time.Now(), releasedBy, time.Now(), truckID.String(), time.Now())
+		WHERE id = ?
+	`, now, releasedBy, now, currentCheckoutID)
 	if err != nil {
-		return fmt.Errorf("failed to update checkouts: %w", err)
+		return fmt.Errorf("failed to update current checkout: %w", err)
+	}
+
+	// Check if there are any remaining active checkouts
+	var remainingCheckouts int
+	err = tx.QueryRow(`
+		SELECT COUNT(*) FROM checkouts
+		WHERE truck_id = ? AND start_date <= ? AND end_date > ?
+	`, truckID.String(), now, now).Scan(&remainingCheckouts)
+	if err != nil {
+		return fmt.Errorf("failed to check remaining checkouts: %w", err)
+	}
+
+	// Only mark truck as available if no active checkouts remain
+	if remainingCheckouts == 0 {
+		_, err = tx.Exec(`
+			UPDATE trucks SET is_checked_out = FALSE WHERE id = ?
+		`, truckID.String())
+		if err != nil {
+			return fmt.Errorf("failed to update truck status: %w", err)
+		}
 	}
 
 	return tx.Commit()
