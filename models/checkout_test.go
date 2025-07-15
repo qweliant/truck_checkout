@@ -139,6 +139,7 @@ func TestGetActiveCheckoutByTruckID(t *testing.T) {
 		t.Errorf("expected to find active checkout, but got expired one")
 	}
 }
+
 func TestReleaseTruckFromCheckout(t *testing.T) {
 	ResetTestDB(t)
 
