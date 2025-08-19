@@ -16,9 +16,9 @@ import (
 )
 
 // Helper function to check if a day is a business day (Monday-Friday)
-func isBusinessDay(t time.Time) bool {
+func isValidDay(t time.Time) bool {
 	weekday := t.Weekday()
-	return weekday >= time.Monday && weekday <= time.Friday
+	return weekday >= time.Monday && weekday <= time.Saturday
 }
 
 // Helper function to add business days to a date
@@ -28,7 +28,7 @@ func addBusinessDays(start time.Time, businessDays int) time.Time {
 
 	for daysAdded < businessDays {
 		current = current.AddDate(0, 0, 1)
-		if isBusinessDay(current) {
+		if isValidDay(current) {
 			daysAdded++
 		}
 	}
@@ -58,18 +58,20 @@ func formatDateRange(start, end time.Time) string {
 	return fmt.Sprintf("%s 7:00 AM - %s 3:30 PM", start.Format("Jan 2"), end.Format("Jan 2, 2006"))
 }
 
-func HandleCheckout(client *socketmode.Client, req *socketmode.Request, truckName string, businessDays int, userId string, userName string) {
-	truckName = cases.Title(language.English).String(strings.ToLower(truckName))
-
+func performCheckout(client *socketmode.Client, user *models.User, truckName string, businessDays int, slackUserId string, userName string) (string, error) {
 	truck, err := models.GetTruckByName(truckName)
 	if err != nil {
-		client.Ack(*req, map[string]string{"text": fmt.Sprintf("❌ Truck `%s` not found.", truckName)})
-		return
+		return "", fmt.Errorf("❌ Truck `%s` not found", truckName)
 	}
 
 	if truck.IsCheckedOut {
-		client.Ack(*req, map[string]string{"text": fmt.Sprintf("🚫 Truck `%s` is already checked out.", truckName)})
-		return
+		return "", fmt.Errorf("🚫 Truck `%s` is already checked out", truckName)
+	}
+
+	if truck.DefaultTeam != nil && user.Team != *truck.DefaultTeam {
+		// TODO: Show cross-team warning
+		// showCrossTeamWarning(client, req, user, truck, truckName, businessDays)
+		return "", fmt.Errorf("⚠️ Warning: %s is typically used by %s team, but you're on %s team. Cross-team warning will be implemented next", truckName)
 	}
 
 	now := time.Now()
@@ -79,9 +81,9 @@ func HandleCheckout(client *socketmode.Client, req *socketmode.Request, truckNam
 	checkout := models.Checkout{
 		ID:        uuid.New(),
 		TruckID:   truck.ID,
-		UserID:    userId,
+		UserID:    slackUserId,
 		UserName:  string(userName),
-		TeamName:  *truck.DefaultTeam,
+		TeamName:  user.Team, // Use the user's actual team
 		StartDate: start,
 		EndDate:   end,
 		Purpose:   fmt.Sprintf("Quick checkout via slash command (%d business days)", businessDays),
@@ -89,13 +91,9 @@ func HandleCheckout(client *socketmode.Client, req *socketmode.Request, truckNam
 
 	if err := models.InsertCheckout(checkout); err != nil {
 		log.Printf("InsertCheckout failed: %v", err)
-		client.Ack(*req, map[string]string{
-			"text": "❌ Could not check out the truck.",
-		})
-		return
+		return "", fmt.Errorf("❌ Could not check out the truck")
 	}
 	truck.IsCheckedOut = true
-	// Mark truck as checked out
 
 	if err = models.UpdateTruck(*truck); err != nil {
 		log.Printf("Truck status update error: %v", err)
@@ -109,6 +107,7 @@ func HandleCheckout(client *socketmode.Client, req *socketmode.Request, truckNam
 	_, _, err = client.PostMessage(channelID, slack.MsgOptionText(message, false))
 	if err != nil {
 		log.Printf("Failed to post message to #vehicleupdates: %v", err)
+		return "", fmt.Errorf("❌ Could not post update to #vehicleupdates channel")
 	}
 
 	var responseText string
@@ -118,7 +117,35 @@ func HandleCheckout(client *socketmode.Client, req *socketmode.Request, truckNam
 		responseText = fmt.Sprintf("✅ Truck `%s` checked out for %d business days (%s)!", truckName, businessDays, dateRange)
 	}
 
-	client.Ack(*req, map[string]string{
-		"text": responseText,
-	})
+	return responseText, nil
+}
+
+func HandleCheckout(client *socketmode.Client, req *socketmode.Request, truckName string, businessDays int, slackUserId string, userName string, triggerId string) {
+	truckName = cases.Title(language.English).String(strings.ToLower(truckName))
+	_, err := models.GetTruckByName(truckName)
+	if err != nil {
+		client.Ack(*req, map[string]string{"text": fmt.Sprintf("❌ Truck `%s` not found.", truckName)})
+		return
+	}
+
+	user, err := models.GetUserBySlackID(slackUserId)
+	if err != nil {
+		client.Ack(*req, map[string]string{"text": "❌ Error retrieving user information."})
+		return
+	}
+
+	if user == nil {
+		showTeamSelectionModal(client, req, triggerId, truckName, businessDays, slackUserId, userName)
+		client.Ack(*req, map[string]string{"text": "👋 Please select your team to continue with checkout."})
+		return
+	}
+
+	responseText, err := performCheckout(client, user, truckName, businessDays, slackUserId, userName)
+	if err != nil {
+		log.Printf("Checkout error: %v", err)
+		client.Ack(*req, map[string]string{"text": err.Error()})
+		return
+	}
+
+	client.Ack(*req, map[string]string{"text": responseText})
 }

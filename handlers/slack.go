@@ -23,13 +23,12 @@ func HandleSlashCommand(client *socketmode.Client, evt socketmode.Event) {
 		args := strings.Fields(cmd.Text)
 		switch len(args) {
 		case 0:
-			// TODO: open Block Kit modal for truck selection
 			client.Ack(*evt.Request, map[string]string{
 				"text": "ℹ️ Use `/checkout [truck-name]` or `/checkout [truck-name] [days]` to check out a truck.",
 			})
 			return
 		case 1:
-			HandleCheckout(client, evt.Request, args[0], 1, cmd.UserID, cmd.UserName)
+			HandleCheckout(client, evt.Request, args[0], 1, cmd.UserID, cmd.UserName, cmd.TriggerID)
 			return
 		case 2:
 			days, err := strconv.Atoi(args[1])
@@ -47,7 +46,7 @@ func HandleSlashCommand(client *socketmode.Client, evt socketmode.Event) {
 				})
 				return
 			}
-			HandleCheckout(client, evt.Request, args[0], days, cmd.UserID, cmd.UserName)
+			HandleCheckout(client, evt.Request, args[0], days, cmd.UserID, cmd.UserName, cmd.TriggerID)
 			return
 		default:
 			client.Ack(*evt.Request, map[string]string{
@@ -97,6 +96,21 @@ func HandleSlashCommand(client *socketmode.Client, evt socketmode.Event) {
 }
 
 func HandleInteractive(client *socketmode.Client, evt socketmode.Event) {
-	client.Ack(*evt.Request)
-	log.Println("Handled interactive event")
+	callback, ok := evt.Data.(slack.InteractionCallback)
+	if !ok {
+		log.Printf("Error: expected InteractionCallback")
+		client.Ack(*evt.Request)
+		return
+	}
+
+	switch callback.Type {
+	case slack.InteractionTypeViewSubmission:
+		if callback.View.CallbackID == "team_selection" {
+			handleTeamSelectionModal(client, evt.Request, &callback)
+		} 
+	case slack.InteractionTypeBlockActions:
+		handleButtonActions(client, evt.Request, &callback)
+	default:
+		client.Ack(*evt.Request)
+	}
 }
