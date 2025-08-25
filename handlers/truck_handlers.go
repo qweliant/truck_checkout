@@ -34,7 +34,7 @@ func HandleTrucksAvailable(client *socketmode.Client, req *socketmode.Request) {
 func HandleTrucksCheckedOut(client *socketmode.Client, req *socketmode.Request) {
 	trucks, err := models.GetTrucksByCheckoutStatus(time.Now(), true)
 	if err != nil {
-		client.Ack(*req, map[string]string{"text": "❌ Could not retrieve checked-out trucks."})
+		client.Ack(*req, map[string]string{"text": "❌ Could not retrieve unavailable trucks."})
 		return
 	}
 	if len(trucks) == 0 {

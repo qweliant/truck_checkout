@@ -76,7 +76,7 @@ func GetTrucksByCheckoutStatus(day time.Time, isCheckedOut bool) ([]Truck, error
 
 	var query string
 	if isCheckedOut {
-		// For checked-out trucks: should be marked as checked out AND have active checkout records
+		// Forunavailable trucks: should be marked as checked out AND have active checkout records
 		query = `
 			SELECT t.id, t.name, t.default_team, t.calendar_id, t.is_checked_out
 			FROM trucks t

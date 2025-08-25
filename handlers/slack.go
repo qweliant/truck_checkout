@@ -61,7 +61,7 @@ func HandleSlashCommand(client *socketmode.Client, evt socketmode.Event) {
 			case "available":
 				HandleTrucksAvailable(client, evt.Request)
 				return
-			case "checked-out":
+			case "unavailable":
 				HandleTrucksCheckedOut(client, evt.Request)
 				return
 			}
