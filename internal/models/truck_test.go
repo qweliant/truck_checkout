@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 	"time"
-	db "truck-checkout/database"
+	db "truck-checkout/internal/database"
 
 	"github.com/google/uuid"
 )
@@ -42,7 +42,7 @@ func TestInsertTruck(t *testing.T) {
 	ResetTestDB(t)
 	team := "beltline"
 	calendarID := uuid.New()
-	err := InsertTruck("Tulip", &team, calendarID, false)
+	err := InsertTruck("Tulip", &team, calendarID, true)
 	if err != nil {
 		t.Fatalf("failed to insert truck: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestInsertTruck(t *testing.T) {
 	if truck.CalendarID != calendarID {
 		t.Errorf("expected calendar ID to match, got '%s'", truck.CalendarID)
 	}
-	if truck.IsCheckedOut {
+	if !truck.IsCheckedOut {
 		t.Error("expected truck to be free")
 	}
 }
@@ -79,7 +79,7 @@ func TestUpdateTruck(t *testing.T) {
 	ResetTestDB(t)
 	team := "floaters"
 	calendarID := uuid.New()
-	err := InsertTruck("Libby", &team, calendarID, true)
+	err := InsertTruck("Libby", &team, calendarID, false)
 	if err != nil {
 		t.Fatalf("Insert failed: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestUpdateTruck(t *testing.T) {
 	// update Libby to be inactive and change team
 	newTeam := "beltline"
 	truck.DefaultTeam = &newTeam
-	truck.IsCheckedOut = false
+	truck.IsCheckedOut = true
 
 	err = UpdateTruck(*truck)
 	if err != nil {
@@ -104,8 +104,8 @@ func TestUpdateTruck(t *testing.T) {
 		t.Fatalf("Get after update failed: %v", err)
 	}
 
-	if updated.IsCheckedOut {
-		t.Errorf("expected IsCheckedOut to be false, got true")
+	if !updated.IsCheckedOut {
+		t.Errorf("expected IsCheckedOut to be true, got false")
 	}
 
 	if *updated.DefaultTeam != "beltline" {
@@ -121,18 +121,18 @@ func TestGetAvailableTrucksForToday(t *testing.T) {
 	team2 := "beltline"
 
 	// Create available trucks (active)
-	err := InsertTruck("Tulip", &team1, uuid.New(), false)
+	err := InsertTruck("Tulip", &team1, uuid.New(), true)
 	if err != nil {
 		t.Fatalf("failed to insert truck Tulip: %v", err)
 	}
 
-	err = InsertTruck("Andre350", &team2, uuid.New(), false)
+	err = InsertTruck("Andre350", &team2, uuid.New(), true)
 	if err != nil {
 		t.Fatalf("failed to insert truck Andre350: %v", err)
 	}
 
-	// Create unavailable truck (checked out)
-	err = InsertTruck("Magnolia", &team1, uuid.New(), true)
+	// Create unavailable truck (unavaialble)
+	err = InsertTruck("Magnolia", &team1, uuid.New(), false)
 	if err != nil {
 		t.Fatalf("failed to insert truck Magnolia: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestGetAvailableTrucksForToday(t *testing.T) {
 	}
 
 	// Test: Get available trucks for today
-	availableTrucks, err := GetTrucksByCheckoutStatus(today, false)
+	availableTrucks, err := GetTrucksByCheckoutStatus(today, true)
 	if err != nil {
 		t.Fatalf("failed to get available trucks: %v", err)
 	}

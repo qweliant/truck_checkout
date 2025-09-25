@@ -3,7 +3,7 @@ package handlers
 import (
 	"fmt"
 	"time"
-	"truck-checkout/models"
+	"truck-checkout/internal/models"
 
 	"github.com/slack-go/slack/socketmode"
 )

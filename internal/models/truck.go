@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	db "truck-checkout/database"
+	db "truck-checkout/internal/database"
 
 	"github.com/google/uuid"
 )

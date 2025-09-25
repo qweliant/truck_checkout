@@ -4,8 +4,8 @@ import (
 	"log"
 	"os"
 
-	db "truck-checkout/database"
-	"truck-checkout/handlers"
+	"truck-checkout/internal/slack"
+	db "truck-checkout/internal/database"
 
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/socketmode"

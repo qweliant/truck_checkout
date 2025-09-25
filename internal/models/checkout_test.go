@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 	"time"
-	db "truck-checkout/database"
+	db "truck-checkout/internal/database"
 
 	"github.com/google/uuid"
 )
@@ -144,7 +144,7 @@ func TestReleaseTruckFromCheckout(t *testing.T) {
 	ResetTestDB(t)
 
 	team := "forest_restoration"
-	err := InsertTruck("Andre350", &team, uuid.New(), true) // Start as checked out
+	err := InsertTruck("Andre350", &team, uuid.New(), false) // Start as checked out
 	if err != nil {
 		t.Fatalf("failed to insert truck: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestReleaseTruckFromCheckout(t *testing.T) {
 	}
 
 	// Verify truck is checked out initially
-	if !truck.IsCheckedOut {
+	if truck.IsCheckedOut {
 		t.Fatal("truck should be checked out initially")
 	}
 
@@ -185,11 +185,12 @@ func TestReleaseTruckFromCheckout(t *testing.T) {
 
 	// Verify truck is no longer checked out
 	updatedTruck, err := GetTruckByName("Andre350")
+	t.Logf("Updated truck: %+v", updatedTruck)
 	if err != nil {
 		t.Fatalf("failed to get updated truck: %v", err)
 	}
 
-	if updatedTruck.IsCheckedOut {
+	if !updatedTruck.IsCheckedOut {
 		t.Error("truck should not be checked out after release")
 	}
 

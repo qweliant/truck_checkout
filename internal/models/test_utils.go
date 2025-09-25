@@ -2,7 +2,7 @@ package models
 
 import (
 	"testing"
-	db "truck-checkout/database"
+	db "truck-checkout/internal/database"
 )
 
 // ResetTestDB clears all data from the 'checkouts' and 'trucks' tables in the test database.

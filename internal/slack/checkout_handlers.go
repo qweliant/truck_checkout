@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"truck-checkout/models"
+	"truck-checkout/internal/models"
 
 	"github.com/google/uuid"
 	"github.com/slack-go/slack"

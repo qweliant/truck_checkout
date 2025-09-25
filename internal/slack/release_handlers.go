@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"log"
-	"truck-checkout/models"
+	"truck-checkout/internal/models"
 
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/socketmode"

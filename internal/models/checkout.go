@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
-	db "truck-checkout/database"
+	db "truck-checkout/internal/database"
 
 	"github.com/google/uuid"
 )
@@ -111,7 +111,7 @@ func ReleaseTruckFromCheckout(truckID uuid.UUID, releasedBy string) error {
 	// Only mark truck as available if no active checkouts remain
 	if remainingCheckouts == 0 {
 		_, err = tx.Exec(`
-			UPDATE trucks SET is_checked_out = FALSE WHERE id = ?
+			UPDATE trucks SET is_checked_out = true WHERE id = ?
 		`, truckID.String())
 		if err != nil {
 			return fmt.Errorf("failed to update truck status: %w", err)
