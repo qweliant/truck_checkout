@@ -3,7 +3,6 @@ package models
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"time"
 
 	db "truck-checkout/internal/database"
@@ -76,25 +75,23 @@ func GetTrucksByCheckoutStatus(day time.Time, isCheckedOut bool) ([]Truck, error
 
 	var query string
 	if isCheckedOut {
-		// Forunavailable trucks: should be marked as checked out AND have active checkout records
+		// Find trucks that HAVE an active checkout right now
 		query = `
 			SELECT t.id, t.name, t.default_team, t.calendar_id, t.is_checked_out
 			FROM trucks t
-			WHERE t.is_checked_out = true
-			AND EXISTS (
+			WHERE EXISTS (
 				SELECT 1 FROM checkouts c
 				WHERE c.truck_id = t.id
-				AND c.start_date <= ?
+				AND c.start_date <= ? 
 				AND c.end_date > ?
 			)
 		`
 	} else {
-		// For available trucks: should be marked as available AND have no active checkout records
+		// Find trucks that DO NOT HAVE an active checkout right now
 		query = `
 			SELECT t.id, t.name, t.default_team, t.calendar_id, t.is_checked_out
 			FROM trucks t
-			WHERE t.is_checked_out = false
-			AND NOT EXISTS (
+			WHERE NOT EXISTS (
 				SELECT 1 FROM checkouts c
 				WHERE c.truck_id = t.id
 				AND c.start_date <= ?
@@ -107,11 +104,7 @@ func GetTrucksByCheckoutStatus(day time.Time, isCheckedOut bool) ([]Truck, error
 	if err != nil {
 		return nil, fmt.Errorf("querying trucks by checkout status: %w", err)
 	}
-	defer func() {
-		if err := rows.Close(); err != nil {
-			log.Printf("error closing rows: %v", err)
-		}
-	}()
+	defer rows.Close()
 
 	var trucks []Truck
 
@@ -124,15 +117,14 @@ func GetTrucksByCheckoutStatus(day time.Time, isCheckedOut bool) ([]Truck, error
 			return nil, fmt.Errorf("scanning truck row: %w", err)
 		}
 
-		var parseErr error
-		if t.ID, parseErr = uuid.Parse(idStr); parseErr != nil {
-			return nil, fmt.Errorf("parsing truck UUID: %w", parseErr)
+		if t.ID, err = uuid.Parse(idStr); err != nil {
+			return nil, fmt.Errorf("parsing truck UUID: %w", err)
 		}
 
-		if t.CalendarID, parseErr = uuid.Parse(calendarIDStr); parseErr != nil {
-			return nil, fmt.Errorf("parsing calendar UUID: %w", parseErr)
+		if t.CalendarID, err = uuid.Parse(calendarIDStr); err != nil {
+			return nil, fmt.Errorf("parsing calendar UUID: %w", err)
 		}
-
+		
 		if defaultTeam.Valid {
 			t.DefaultTeam = &defaultTeam.String
 		}

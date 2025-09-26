@@ -116,7 +116,7 @@ func TestUpdateTruck(t *testing.T) {
 func TestGetAvailableTrucksForToday(t *testing.T) {
 	ResetTestDB(t)
 
-	// Create test trucks
+	// Create test trucks teams
 	team1 := "forest_restoration"
 	team2 := "beltline"
 
@@ -142,30 +142,26 @@ func TestGetAvailableTrucksForToday(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get Magnolia truck: %v", err)
 	}
-
+	
 	// Create a checkout for today that overlaps with the query day
 	today := time.Now()
-	startOfToday := time.Date(today.Year(), today.Month(), today.Day(), 9, 0, 0, 0, today.Location())
-	endOfToday := startOfToday.Add(8 * time.Hour) // 9 AM to 5 PM
-
 	checkout := Checkout{
 		ID:        uuid.New(),
 		TruckID:   magnolia.ID,
 		UserID:    uuid.New().String(),
 		UserName:  "Test User",
 		TeamName:  "neighborwoods",
-		StartDate: startOfToday,
-		EndDate:   endOfToday,
+		StartDate: today.Add(-1 * time.Hour), 
+		EndDate:   today.Add(7 * time.Hour),  
 		Purpose:   "Testing checkout overlap",
 	}
 
-	err = InsertCheckout(checkout)
-	if err != nil {
+	if err := InsertCheckout(checkout); err != nil {
 		t.Fatalf("failed to insert checkout: %v", err)
 	}
 
 	// Test: Get available trucks for today
-	availableTrucks, err := GetTrucksByCheckoutStatus(today, true)
+	availableTrucks, err := GetTrucksByCheckoutStatus(today, false)
 	if err != nil {
 		t.Fatalf("failed to get available trucks: %v", err)
 	}
@@ -174,7 +170,6 @@ func TestGetAvailableTrucksForToday(t *testing.T) {
 
 	// Should have 2 available trucks (Tulip and Andre350)
 	// Magnolia should be excluded (checked out)
-	// InactiveTruck should be excluded (inactive)
 	expectedCount := 2
 	if len(availableTrucks) != expectedCount {
 		t.Errorf("Expected %d available trucks, got %d", expectedCount, len(availableTrucks))
