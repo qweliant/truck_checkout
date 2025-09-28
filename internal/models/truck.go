@@ -74,31 +74,25 @@ func GetTrucksByCheckoutStatus(day time.Time, isCheckedOut bool) ([]Truck, error
 	currentTime := time.Now()
 
 	var query string
-	if isCheckedOut {
-		// Find trucks that HAVE an active checkout right now
-		query = `
-			SELECT t.id, t.name, t.default_team, t.calendar_id, t.is_checked_out
-			FROM trucks t
-			WHERE EXISTS (
-				SELECT 1 FROM checkouts c
-				WHERE c.truck_id = t.id
-				AND c.start_date <= ? 
-				AND c.end_date > ?
-			)
-		`
-	} else {
-		// Find trucks that DO NOT HAVE an active checkout right now
-		query = `
-			SELECT t.id, t.name, t.default_team, t.calendar_id, t.is_checked_out
-			FROM trucks t
-			WHERE NOT EXISTS (
-				SELECT 1 FROM checkouts c
-				WHERE c.truck_id = t.id
-				AND c.start_date <= ?
-				AND c.end_date > ?
-			)
-		`
-	}
+    activeCheckoutSubquery := `
+        EXISTS (
+            SELECT 1 FROM checkouts c
+            WHERE c.truck_id = t.id
+            AND c.start_date <= ? 
+            AND c.end_date > ?
+            AND c.released_at IS NULL
+        )
+    `
+
+    if isCheckedOut {
+        query = fmt.Sprintf(`
+            SELECT t.id, t.name, t.default_team, t.calendar_id, t.is_checked_out
+            FROM trucks t WHERE %s`, activeCheckoutSubquery)
+    } else {
+        query = fmt.Sprintf(`
+            SELECT t.id, t.name, t.default_team, t.calendar_id, t.is_checked_out
+            FROM trucks t WHERE NOT %s`, activeCheckoutSubquery)
+    }
 
 	rows, err := db.DB.Query(query, currentTime, currentTime)
 	if err != nil {

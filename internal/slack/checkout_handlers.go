@@ -71,7 +71,7 @@ func performCheckout(client *socketmode.Client, user *models.User, truckName str
 	if truck.DefaultTeam != nil && user.Team != *truck.DefaultTeam {
 		// TODO: Show cross-team warning
 		// showCrossTeamWarning(client, req, user, truck, truckName, businessDays)
-		return "", fmt.Errorf("⚠️ Warning: %s is typically used by %s team, but you're on %s team. Cross-team warning will be implemented next", truckName)
+		return "", fmt.Errorf("⚠️ Warning: %s is typically used by %s team, but you're on %s team. Cross-team warning will be implemented next", truckName, *truck.DefaultTeam, user.Team)
 	}
 
 	now := time.Now()
@@ -89,14 +89,9 @@ func performCheckout(client *socketmode.Client, user *models.User, truckName str
 		Purpose:   fmt.Sprintf("Quick checkout via slash command (%d business days)", businessDays),
 	}
 
-	if err := models.InsertCheckout(checkout); err != nil {
-		log.Printf("InsertCheckout failed: %v", err)
-		return "", fmt.Errorf("❌ Could not check out the truck")
-	}
-	truck.IsCheckedOut = true
-
-	if err = models.UpdateTruck(*truck); err != nil {
-		log.Printf("Truck status update error: %v", err)
+	if err := models.CreateCheckout(checkout); err != nil {
+		log.Printf("CreateCheckout failed: %v", err)
+		return "", fmt.Errorf("❌ Could not check out the truck due to a database error")
 	}
 
 	// Send message to #vehicleupdates channel
@@ -120,7 +115,7 @@ func performCheckout(client *socketmode.Client, user *models.User, truckName str
 	return responseText, nil
 }
 
-func HandleCheckout(client *socketmode.Client, req *socketmode.Request, truckName string, businessDays int, slackUserId string, userName string, triggerId string) {
+func HandleCheckout(client *socketmode.Client, req *socketmode.Request, truckName string, businessDays int, slackUserId string, userName string, triggerId string, channelId string) {
 	truckName = cases.Title(language.English).String(strings.ToLower(truckName))
 	_, err := models.GetTruckByName(truckName)
 	if err != nil {
@@ -135,7 +130,7 @@ func HandleCheckout(client *socketmode.Client, req *socketmode.Request, truckNam
 	}
 
 	if user == nil {
-		showTeamSelectionModal(client, req, triggerId, truckName, businessDays, slackUserId, userName)
+		showTeamSelectionModal(client, req, triggerId, truckName, businessDays, slackUserId, userName, channelId)
 		client.Ack(*req, map[string]string{"text": "👋 Please select your team to continue with checkout."})
 		return
 	}

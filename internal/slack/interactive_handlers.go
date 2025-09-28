@@ -13,7 +13,7 @@ import (
 	"golang.org/x/text/language"
 )
 
-func showTeamSelectionModal(client *socketmode.Client, req *socketmode.Request, triggerID string, truckName string, businessDays int, userId string, userName string) {
+func showTeamSelectionModal(client *socketmode.Client, req *socketmode.Request, triggerID string, truckName string, businessDays int, userId string, userName string, channelId string) {
 	// Create options for team selection
 	var options []*slack.OptionBlockObject
 	for _, team := range models.ValidTeams {
@@ -29,8 +29,8 @@ func showTeamSelectionModal(client *socketmode.Client, req *socketmode.Request, 
 	}
 
 	// Store checkout parameters in metadata so we can retrieve them later
-	metadata := fmt.Sprintf("%s|%d|%s|%s", truckName, businessDays, userId, userName)
-
+	metadata := fmt.Sprintf("%s|%d|%s|%s|%s", truckName, businessDays, userId, userName, channelId)
+	
 	modalRequest := slack.ModalViewRequest{
 		Type:            slack.ViewType("modal"),
 		Title:           slack.NewTextBlockObject("plain_text", "Select Your Team", true, false),
@@ -42,7 +42,7 @@ func showTeamSelectionModal(client *socketmode.Client, req *socketmode.Request, 
 			BlockSet: []slack.Block{
 				slack.NewSectionBlock(
 					slack.NewTextBlockObject("mrkdwn",
-						fmt.Sprintf("👋 Welcome! To checkout *%s*, please select your team:", truckName), true, false),
+					fmt.Sprintf("👋 Welcome! To checkout *%s*, please select your team:", truckName), true, false),
 					nil, nil,
 				),
 				slack.NewInputBlock(
@@ -59,7 +59,7 @@ func showTeamSelectionModal(client *socketmode.Client, req *socketmode.Request, 
 			},
 		},
 	}
-
+	
 	// Show the modal
 	_, err := client.OpenView(triggerID, modalRequest)
 	if err != nil {
@@ -69,7 +69,7 @@ func showTeamSelectionModal(client *socketmode.Client, req *socketmode.Request, 
 		})
 		return
 	}
-
+	
 	// Acknowledge the slash command (modal is now open)
 	client.Ack(*req, map[string]string{})
 }
@@ -92,12 +92,32 @@ func handleButtonActions(client *socketmode.Client, req *socketmode.Request, cal
 	client.Ack(*req)
 }
 
+// This function builds a simple modal that just displays an error message.
+func buildErrorModal(errorMessage string) slack.ModalViewRequest {
+	// The \` characters create a multi-line string in Go.
+	errorText := fmt.Sprintf(`:warning: *An error occurred:*\n\n%s\n\nPlease try again.`, errorMessage)
+
+	return slack.ModalViewRequest{
+		Type:  slack.ViewType("modal"),
+		Title: slack.NewTextBlockObject("plain_text", "Error", true, false),
+		Close: slack.NewTextBlockObject("plain_text", "Close", true, false),
+		Blocks: slack.Blocks{
+			BlockSet: []slack.Block{
+				slack.NewSectionBlock(
+					slack.NewTextBlockObject("mrkdwn", errorText, false, false),
+					nil,
+					nil,
+				),
+			},
+		},
+	}
+}
 
 func handleTeamSelectionModal(client *socketmode.Client, req *socketmode.Request, callback *slack.InteractionCallback) {
 	teamValue := callback.View.State.Values["team_block"]["team_select"].SelectedOption.Value
 	metadata := callback.View.PrivateMetadata
 	parts := strings.Split(metadata, "|")
-	if len(parts) != 4 {
+	if len(parts) != 5 {
 		client.Ack(*req, map[string]string{
 			"text": "❌ Error processing team selection.",
 		})
@@ -108,10 +128,11 @@ func handleTeamSelectionModal(client *socketmode.Client, req *socketmode.Request
 	businessDays, _ := strconv.Atoi(parts[1])
 	userId := parts[2]
 	userName := parts[3]
+	channelId := parts[4]
 
 	log.Printf("User %s selected team %s for truck %s", userName, teamValue, truckName)
 
-	user, err := models.CreateUser(userId, userName, teamValue)
+	user, err := models.GetOrCreateUserBySlackID(userId, userName, teamValue)
 	if err != nil {
 		log.Printf("Failed to create user %s (%s) with team %s: %v", userName, userId, teamValue, err)
 		client.Ack(*req, map[string]string{
@@ -120,15 +141,33 @@ func handleTeamSelectionModal(client *socketmode.Client, req *socketmode.Request
 		return
 	}
 
-	log.Printf("Created new user %s (%s) with team %s for truck %s", userName, userId, teamValue, truckName)
+	log.Printf("User %s (%s) with team %s is checking out the truck %s", userName, userId, teamValue, truckName)
 
 	responseText, err := performCheckout(client, user, truckName, businessDays, userId, userName)
 	if err != nil {
 		log.Printf("Checkout error: %v", err)
-		client.Ack(*req, map[string]string{"text": err.Error()})
+		errorView := buildErrorModal(err.Error())
+		response := map[string]interface{}{
+			"response_action": "update",
+			"view":            errorView,
+		}
+
+		client.Ack(*req, response)
 		return
 	}
 
 	combinedMessage := fmt.Sprintf("👋 Welcome! Created your profile with team %s. %s", teamValue, responseText)
-	client.Ack(*req, map[string]string{"text": combinedMessage})
+	log.Printf("Final response to user %s: %s in %s", userName, combinedMessage, channelId)
+	client.Ack(*req, map[string]interface{}{
+        "response_action": "clear",
+    })
+
+	_, err = client.PostEphemeral(
+        channelId,
+        callback.User.ID, 
+        slack.MsgOptionText(combinedMessage, false),
+    )
+    if err != nil {
+        log.Printf("Failed to send ephemeral message: %v", err)
+    }
 }

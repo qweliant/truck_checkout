@@ -28,7 +28,7 @@ func HandleSlashCommand(client *socketmode.Client, evt socketmode.Event) {
 			})
 			return
 		case 1:
-			HandleCheckout(client, evt.Request, args[0], 1, cmd.UserID, cmd.UserName, cmd.TriggerID)
+			HandleCheckout(client, evt.Request, args[0], 1, cmd.UserID, cmd.UserName, cmd.TriggerID, cmd.ChannelID)
 			return
 		case 2:
 			days, err := strconv.Atoi(args[1])
@@ -46,7 +46,7 @@ func HandleSlashCommand(client *socketmode.Client, evt socketmode.Event) {
 				})
 				return
 			}
-			HandleCheckout(client, evt.Request, args[0], days, cmd.UserID, cmd.UserName, cmd.TriggerID)
+			HandleCheckout(client, evt.Request, args[0], days, cmd.UserID, cmd.UserName, cmd.TriggerID, cmd.ChannelID)
 			return
 		default:
 			client.Ack(*evt.Request, map[string]string{

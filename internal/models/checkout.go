@@ -36,6 +36,33 @@ func InsertCheckout(checkout Checkout) error {
 	return err
 }
 
+func CreateCheckout(checkout Checkout) error {
+	tx, err := db.DB.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	// Defer a rollback in case of an error
+	defer tx.Rollback()
+
+	// Step 1: Insert the checkout record
+	_, err = tx.Exec(`
+		INSERT INTO checkouts (id, truck_id, user_id, user_name, team_name, start_date, end_date, purpose)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`, checkout.ID.String(), checkout.TruckID.String(), checkout.UserID,
+		checkout.UserName, checkout.TeamName, checkout.StartDate, checkout.EndDate, checkout.Purpose)
+	if err != nil {
+		return fmt.Errorf("failed to insert checkout: %w", err)
+	}
+
+	// Step 2: Update the truck's status to checked out
+	_, err = tx.Exec(`UPDATE trucks SET is_checked_out = true WHERE id = ?`, checkout.TruckID.String())
+	if err != nil {
+		return fmt.Errorf("failed to update truck status: %w", err)
+	}
+
+	return tx.Commit()
+}
+
 func GetCheckoutByID(id uuid.UUID) (*Checkout, error) {
 	var checkout Checkout
 	var purpose sql.NullString
@@ -67,55 +94,39 @@ func ReleaseTruckFromCheckout(truckID uuid.UUID, releasedBy string) error {
 
 	now := time.Now()
 
-	// Find the current active checkout (the one that should be released)
 	var currentCheckoutID string
-	err = tx.QueryRow(`
-		SELECT id FROM checkouts 
-		WHERE truck_id = ? 
-		AND start_date <= ? 
-		AND end_date > ?
-		ORDER BY start_date ASC 
-		LIMIT 1
-	`, truckID.String(), now, now).Scan(&currentCheckoutID)
+    err = tx.QueryRow(`
+        SELECT id FROM checkouts 
+        WHERE truck_id = ? AND released_at IS NULL
+        ORDER BY start_date DESC 
+        LIMIT 1
+    `, truckID.String()).Scan(&currentCheckoutID)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return fmt.Errorf("no active checkout found for truck")
+			// This is not an error, it just means the truck is already available.
+			// We can double-check the truck's status and fix it if it's inconsistent.
+			tx.Exec(`UPDATE trucks SET is_checked_out = false WHERE id = ?`, truckID.String())
+			return tx.Commit() // Commit the fix and return nil error.
 		}
 		return fmt.Errorf("failed to find current checkout: %w", err)
 	}
 
-	// Only update the current active checkout
+	// Update the active checkout to mark it as released
 	_, err = tx.Exec(`
-		UPDATE checkouts 
-		SET 
-			end_date = ?,
-			released_by = ?,
-			released_at = ?
-		WHERE id = ?
-	`, now, releasedBy, now, currentCheckoutID)
+        UPDATE checkouts 
+        SET released_at = ?, released_by = ?
+        WHERE id = ?
+    `, now, releasedBy, currentCheckoutID)
 	if err != nil {
 		return fmt.Errorf("failed to update current checkout: %w", err)
 	}
 
-	// Check if there are any remaining active checkouts
-	var remainingCheckouts int
-	err = tx.QueryRow(`
-		SELECT COUNT(*) FROM checkouts
-		WHERE truck_id = ? AND start_date <= ? AND end_date > ?
-	`, truckID.String(), now, now).Scan(&remainingCheckouts)
+	_, err = tx.Exec(`
+        UPDATE trucks SET is_checked_out = false WHERE id = ?
+    `, truckID.String())
 	if err != nil {
-		return fmt.Errorf("failed to check remaining checkouts: %w", err)
-	}
-
-	// Only mark truck as available if no active checkouts remain
-	if remainingCheckouts == 0 {
-		_, err = tx.Exec(`
-			UPDATE trucks SET is_checked_out = true WHERE id = ?
-		`, truckID.String())
-		if err != nil {
-			return fmt.Errorf("failed to update truck status: %w", err)
-		}
+		return fmt.Errorf("failed to update truck status: %w", err)
 	}
 
 	return tx.Commit()

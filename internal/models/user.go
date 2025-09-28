@@ -20,10 +20,10 @@ type User struct {
 
 func GetUserBySlackID(slackUserID string) (*User, error) {
 	query := `
-		SELECT id, slack_user_id, username, team, created_at 
-		FROM users 
-		WHERE slack_user_id = ?
-	`
+        SELECT id, slack_user_id, username, team, created_at 
+        FROM users 
+        WHERE slack_user_id = ?
+    `
 
 	var user User
 	err := db.DB.QueryRow(query, slackUserID).Scan(
@@ -36,9 +36,9 @@ func GetUserBySlackID(slackUserID string) (*User, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, nil // User not found, return nil without error
+			return nil, nil // Return (nil, nil) to indicate "not found" without an error.
 		}
-		return nil, err
+		return nil, err // A real database error occurred.
 	}
 
 	return &user, nil
@@ -63,9 +63,9 @@ func CreateUser(slackUserID, username, team string) (*User, error) {
 	}
 
 	query := `
-		INSERT INTO users (id, slack_user_id, username, team, created_at)
-		VALUES (?, ?, ?, ?, ?)
-	`
+        INSERT INTO users (id, slack_user_id, username, team, created_at)
+        VALUES (?, ?, ?, ?, ?)
+    `
 
 	_, err := db.DB.Exec(query, user.ID, user.SlackUserID, user.Username, user.Team, user.CreatedAt)
 	if err != nil {
@@ -75,12 +75,25 @@ func CreateUser(slackUserID, username, team string) (*User, error) {
 	return &user, nil
 }
 
+func GetOrCreateUserBySlackID(slackUserID, username, team string) (*User, error) {
+	user, err := GetUserBySlackID(slackUserID)
+	if err != nil {
+		return nil, fmt.Errorf("error checking for existing user: %w", err)
+	}
+
+	if user != nil {
+		return user, nil
+	}
+
+	return CreateUser(slackUserID, username, team)
+}
+
 func UpdateUser(user User) error {
 	query := `
-		UPDATE users 
-		SET username = ?, team = ?
-		WHERE slack_user_id = ?
-	`
+        UPDATE users 
+        SET username = ?, team = ?
+        WHERE slack_user_id = ?
+    `
 
 	_, err := db.DB.Exec(query, user.Username, user.Team, user.SlackUserID)
 	return err
@@ -88,10 +101,10 @@ func UpdateUser(user User) error {
 
 func GetAllUsers() ([]User, error) {
 	query := `
-		SELECT id, slack_user_id, username, team, created_at 
-		FROM users 
-		ORDER BY username
-	`
+        SELECT id, slack_user_id, username, team, created_at 
+        FROM users 
+        ORDER BY username
+    `
 
 	rows, err := db.DB.Query(query)
 	if err != nil {

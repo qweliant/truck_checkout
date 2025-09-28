@@ -17,21 +17,20 @@ func main() {
 	if dbPath == "" {
 		dbPath = "truckbot.db" // Default database file name
 	}
+	
 
 	// Initialize the database connection.
 	log.Printf("🔌 Connecting to the database... %s", dbPath)
 	db.InitDB(dbPath)
-	log.Println("✅ Database connection established.")
+	log.Println("🟢 Database connection established.")
 
 	// --- Data Cleanup ---
 	log.Println("🗑️  Clearing existing data...")
-	if _, err := db.DB.Exec("DELETE FROM checkouts"); err != nil {
-		log.Fatalf("❌ Failed to clear checkouts table: %v", err)
+	_, err := db.DB.Exec(`DELETE FROM checkouts; DELETE FROM trucks; DELETE FROM users;`)
+	if err != nil {
+		log.Fatalf("❌ Failed to reset database: %v", err)
 	}
-	if _, err := db.DB.Exec("DELETE FROM trucks"); err != nil {
-		log.Fatalf("❌ Failed to clear trucks table: %v", err)
-	}
-	log.Println("✅ All tables cleared.")
+	log.Println("🟢 All tables cleared.")
 
 	// --- Seed Trucks ---
 	log.Println("🌱 Seeding trucks with assigned default teams...")
@@ -50,19 +49,28 @@ func main() {
 		calendarID := uuid.New()
 
 		// Insert the truck with its default state. IsAvailable is false by default.
-		err := models.InsertTruck(truckData.Name, &truckData.DefaultTeam, calendarID, true) // Initially, all trucks are available.
+		err := models.InsertTruck(truckData.Name, &truckData.DefaultTeam, calendarID, false) // Initially, all trucks are available.
 		if err != nil {
 			log.Fatalf("❌ Failed to insert truck %s: %v", truckData.Name, err)
 		}
-		log.Printf("   🚚 Inserted truck: %s (Default Team: %s)", truckData.Name, truckData.DefaultTeam)
+		log.Printf("   🚚 Inserted truck: %s (Default Team: %s) 🟢 AVAILABLE", truckData.Name, truckData.DefaultTeam)
 	}
-	log.Println("✅ Trucks seeded successfully.")
+	log.Println("🟢 Trucks seeded successfully.")
 
 	// --- Seed Checkouts ---
 	log.Println("🚛 Seeding example checkouts for Tulip and Libby...")
 
-	// Define common details for the seeded checkouts.
-	userID := uuid.New().String()
+	// --- Seed User ---
+	testUserSlackID := "U000SEEDER" // Use a fake but valid-looking Slack ID
+	testUserName := "Seeder McSeedface"
+	testUserTeam := "seeders" // Arbitrary team, since team doesn't restrict checkout
+
+	user, err := models.CreateUser(testUserSlackID, testUserName, testUserTeam)
+	if err != nil {
+		log.Fatalf("❌ Failed to create seed user: %v", err)
+	}
+	log.Printf("   👤 Created seed user: %s (ID: %s, Team: %s)", testUserName, testUserSlackID, testUserTeam)
+	userID := user.ID
 	start := time.Now()
 	end := start.Add(8 * time.Hour) // A standard 8-hour checkout
 
@@ -90,18 +98,18 @@ func main() {
 		}
 
 		// Insert the checkout record into the database.
-		if err = models.InsertCheckout(checkout); err != nil {
+		if err = models.CreateCheckout(checkout); err != nil {
 			log.Fatalf("❌ Failed to insert checkout for %s: %v", truckName, err)
 		}
 
-		// When a truck is checked out, its IsAvailable status must be set to false.
-		truck.IsCheckedOut = false
+		// Update the truck's availability status to checked out.
+		truck.IsCheckedOut = true
 		if err = models.UpdateTruck(*truck); err != nil {
 			log.Fatalf("❌ Failed to update availability for truck %s: %v", truckName, err)
 		}
 
-		log.Printf("   🟡 Checked out %s, status set to UNAVAILABLE.", truckName)
+		log.Printf("   🟡 Checked out %s, status: UNAVAILABLE", truckName)
 	}
 
-	log.Println("🌳 Seed complete.")
+	log.Println("🌳 Seed complete. 🟢")
 }
