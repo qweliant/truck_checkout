@@ -18,7 +18,6 @@ func main() {
 		dbPath = "truckbot.db" // Default database file name
 	}
 	
-
 	// Initialize the database connection.
 	log.Printf("🔌 Connecting to the database... %s", dbPath)
 	db.InitDB(dbPath)
@@ -38,10 +37,10 @@ func main() {
 		Name        string
 		DefaultTeam string
 	}{
-		{"Libby", "floaters"},
+		{"Bert", "dtp"},
 		{"Tulip", "beltline"},
-		{"Watson", "forest_restoration"},
-		{"Andre350", "urban_trees"},
+		{"Watson", "beltline"},
+		{"Andre350", "trees_atlanta"},
 	}
 
 	for _, truckData := range truckSeedData {
@@ -58,7 +57,7 @@ func main() {
 	log.Println("🟢 Trucks seeded successfully.")
 
 	// --- Seed Checkouts ---
-	log.Println("🚛 Seeding example checkouts for Tulip and Libby...")
+	log.Println("🚛 Seeding example checkouts for Tulip and Bert...")
 
 	// --- Seed User ---
 	testUserSlackID := "U000SEEDER" // Use a fake but valid-looking Slack ID
@@ -74,7 +73,7 @@ func main() {
 	start := time.Now()
 	end := start.Add(8 * time.Hour) // A standard 8-hour checkout
 
-	checkoutTrucks := []string{"Libby", "Tulip"}
+	checkoutTrucks := []string{"Bert", "Tulip"}
 
 	for _, truckName := range checkoutTrucks {
 		// Retrieve the truck from the database to ensure we have the correct ID.

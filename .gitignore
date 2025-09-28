@@ -3,3 +3,4 @@
 *.DS_Store
 *.db
 service-account.json
+config/*.json
