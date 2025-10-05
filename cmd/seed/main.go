@@ -45,7 +45,7 @@ func main() {
 
 	for _, truckData := range truckSeedData {
 		// A unique calendar ID for each truck is good practice for Phase 2.
-		calendarID := uuid.New()
+		calendarID := uuid.NewString()
 
 		// Insert the truck with its default state. IsAvailable is false by default.
 		err := models.InsertTruck(truckData.Name, &truckData.DefaultTeam, calendarID, false) // Initially, all trucks are available.

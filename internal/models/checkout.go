@@ -95,7 +95,7 @@ func ReleaseTruckFromCheckout(truckID uuid.UUID, releasedBy string) error {
 	now := time.Now()
 
 	var currentCheckoutID string
-    err = tx.QueryRow(`
+	err = tx.QueryRow(`
         SELECT id FROM checkouts 
         WHERE truck_id = ? AND released_at IS NULL
         ORDER BY start_date DESC 
@@ -106,8 +106,9 @@ func ReleaseTruckFromCheckout(truckID uuid.UUID, releasedBy string) error {
 		if err == sql.ErrNoRows {
 			// This is not an error, it just means the truck is already available.
 			// We can double-check the truck's status and fix it if it's inconsistent.
-			tx.Exec(`UPDATE trucks SET is_checked_out = false WHERE id = ?`, truckID.String())
-			return tx.Commit() // Commit the fix and return nil error.
+			if err == sql.ErrNoRows {
+				return fmt.Errorf("no active checkout found for this truck")
+			}
 		}
 		return fmt.Errorf("failed to find current checkout: %w", err)
 	}
@@ -134,13 +135,19 @@ func ReleaseTruckFromCheckout(truckID uuid.UUID, releasedBy string) error {
 
 func GetActiveCheckoutByTruckID(truckID uuid.UUID) (*Checkout, error) {
 	var checkout Checkout
-	err := db.DB.QueryRow(`
-		SELECT id, truck_id, user_id, user_name, team_name, start_date, end_date, purpose
-		FROM checkouts 
-		WHERE truck_id = ? AND end_date > ?
-		ORDER BY start_date DESC
-		LIMIT 1
-	`, truckID.String(), time.Now()).Scan(
+	now := time.Now()
+
+	query := `
+        SELECT id, truck_id, user_id, user_name, team_name, start_date, end_date, purpose
+        FROM checkouts
+        WHERE truck_id = ?
+          AND start_date <= ?
+          AND end_date > ?
+          AND released_at IS NULL
+        ORDER BY start_date DESC
+        LIMIT 1
+    `
+	err := db.DB.QueryRow(query, truckID.String(), now, now).Scan(
 		&checkout.ID,
 		&checkout.TruckID,
 		&checkout.UserID,

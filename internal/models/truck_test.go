@@ -41,7 +41,7 @@ func TestMain(m *testing.M) {
 func TestInsertTruck(t *testing.T) {
 	ResetTestDB(t)
 	team := "beltline"
-	calendarID := uuid.New()
+	calendarID := uuid.NewString()
 	err := InsertTruck("Tulip", &team, calendarID, true)
 	if err != nil {
 		t.Fatalf("failed to insert truck: %v", err)
@@ -57,8 +57,8 @@ func TestInsertTruck(t *testing.T) {
 	if *truck.DefaultTeam != team {
 		t.Errorf("expected default team to be 'beltline', got '%s'", *truck.DefaultTeam)
 	}
-	if truck.CalendarID != calendarID {
-		t.Errorf("expected calendar ID to match, got '%s'", truck.CalendarID)
+	if truck.GoogleCalendarID != calendarID {
+		t.Errorf("expected calendar ID to match, got '%s'", truck.GoogleCalendarID)
 	}
 	if !truck.IsCheckedOut {
 		t.Error("expected truck to be free")
@@ -67,7 +67,7 @@ func TestInsertTruck(t *testing.T) {
 
 func TestInsertTruck_InvalidName(t *testing.T) {
 	ResetTestDB(t)
-	calendarID := uuid.New()
+	calendarID := uuid.NewString()
 	team := "beltline"
 	err := InsertTruck("BananaBoat", &team, calendarID, true)
 	if err == nil {
@@ -78,7 +78,7 @@ func TestInsertTruck_InvalidName(t *testing.T) {
 func TestUpdateTruck(t *testing.T) {
 	ResetTestDB(t)
 	team := "floaters"
-	calendarID := uuid.New()
+	calendarID := uuid.NewString()
 	err := InsertTruck("Libby", &team, calendarID, false)
 	if err != nil {
 		t.Fatalf("Insert failed: %v", err)
@@ -121,18 +121,18 @@ func TestGetAvailableTrucksForToday(t *testing.T) {
 	team2 := "beltline"
 
 	// Create available trucks (active)
-	err := InsertTruck("Tulip", &team1, uuid.New(), true)
+	err := InsertTruck("Tulip", &team1, uuid.NewString(), true)
 	if err != nil {
 		t.Fatalf("failed to insert truck Tulip: %v", err)
 	}
 
-	err = InsertTruck("Andre350", &team2, uuid.New(), true)
+	err = InsertTruck("Andre350", &team2, uuid.NewString(), true)
 	if err != nil {
 		t.Fatalf("failed to insert truck Andre350: %v", err)
 	}
 
 	// Create unavailable truck (unavaialble)
-	err = InsertTruck("Magnolia", &team1, uuid.New(), false)
+	err = InsertTruck("Magnolia", &team1, uuid.NewString(), false)
 	if err != nil {
 		t.Fatalf("failed to insert truck Magnolia: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestGetAvailableTrucksForToday(t *testing.T) {
 		Purpose:   "Testing checkout overlap",
 	}
 
-	if err := InsertCheckout(checkout); err != nil {
+	if err := CreateCheckout (checkout); err != nil {
 		t.Fatalf("failed to insert checkout: %v", err)
 	}
 

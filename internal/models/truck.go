@@ -14,11 +14,11 @@ type Truck struct {
 	ID           uuid.UUID
 	Name         string
 	DefaultTeam  *string
-	CalendarID   uuid.UUID
+	GoogleCalendarID   string
 	IsCheckedOut bool
 }
 
-func InsertTruck(name string, team *string, calendarID uuid.UUID, isCheckedOut bool) error {
+func InsertTruck(name string, team *string, calendarID string, isCheckedOut bool) error {
 	// anyway for the enum to be auto validated?
 	if !IsValidTruck(name) {
 		return fmt.Errorf("invalid truck name: %s", name)
@@ -29,7 +29,7 @@ func InsertTruck(name string, team *string, calendarID uuid.UUID, isCheckedOut b
 
 	id := uuid.New()
 	_, err := db.DB.Exec(`
-		INSERT INTO trucks (id, name, default_team, calendar_id, is_checked_out)
+		INSERT INTO trucks (id, name, default_team, google_calendar_id, is_checked_out)
 		VALUES (?, ?, ?, ?, ?);
 	`, id, name, team, calendarID, isCheckedOut)
 	return err
@@ -39,8 +39,8 @@ func GetTruckByName(name string) (*Truck, error) {
 	var truck Truck
 	var defaultTeam sql.NullString
 
-	row := db.DB.QueryRow("SELECT id, name, default_team, calendar_id, is_checked_out FROM trucks WHERE name = ?", name)
-	err := row.Scan(&truck.ID, &truck.Name, &defaultTeam, &truck.CalendarID, &truck.IsCheckedOut)
+	row := db.DB.QueryRow("SELECT id, name, default_team, google_calendar_id, is_checked_out FROM trucks WHERE name = ?", name)
+	err := row.Scan(&truck.ID, &truck.Name, &defaultTeam, &truck.GoogleCalendarID, &truck.IsCheckedOut)
 	if err != nil {
 		return nil, err
 	}
@@ -62,9 +62,9 @@ func UpdateTruck(truck Truck) error {
 
 	_, err := db.DB.Exec(`
 		UPDATE trucks
-		SET name = ?, default_team = ?, calendar_id = ?, is_checked_out = ?
+		SET name = ?, default_team = ?, google_calendar_id = ?, is_checked_out = ?
 		WHERE id = ?;
-	`, truck.Name, truck.DefaultTeam, truck.CalendarID, truck.IsCheckedOut, truck.ID)
+	`, truck.Name, truck.DefaultTeam, truck.GoogleCalendarID, truck.IsCheckedOut, truck.ID)
 	return err
 }
 
@@ -86,11 +86,11 @@ func GetTrucksByCheckoutStatus(day time.Time, isCheckedOut bool) ([]Truck, error
 
     if isCheckedOut {
         query = fmt.Sprintf(`
-            SELECT t.id, t.name, t.default_team, t.calendar_id, t.is_checked_out
+            SELECT t.id, t.name, t.default_team, t.google_calendar_id, t.is_checked_out
             FROM trucks t WHERE %s`, activeCheckoutSubquery)
     } else {
         query = fmt.Sprintf(`
-            SELECT t.id, t.name, t.default_team, t.calendar_id, t.is_checked_out
+            SELECT t.id, t.name, t.default_team, t.google_calendar_id, t.is_checked_out
             FROM trucks t WHERE NOT %s`, activeCheckoutSubquery)
     }
 
@@ -115,9 +115,7 @@ func GetTrucksByCheckoutStatus(day time.Time, isCheckedOut bool) ([]Truck, error
 			return nil, fmt.Errorf("parsing truck UUID: %w", err)
 		}
 
-		if t.CalendarID, err = uuid.Parse(calendarIDStr); err != nil {
-			return nil, fmt.Errorf("parsing calendar UUID: %w", err)
-		}
+		t.GoogleCalendarID = calendarIDStr
 		
 		if defaultTeam.Valid {
 			t.DefaultTeam = &defaultTeam.String

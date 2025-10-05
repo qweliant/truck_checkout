@@ -35,7 +35,7 @@ func CreateTables(database *sql.DB) error {
 		id TEXT PRIMARY KEY,
 		name TEXT NOT NULL UNIQUE,
 		default_team TEXT,
-		calendar_id TEXT,
+		google_calendar_id TEXT,
 		is_checked_out BOOLEAN DEFAULT FALSE
 	);`
 
